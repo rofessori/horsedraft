@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'" />
+    <title>HorseDraft</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="stage" aria-label="Race track"></canvas>
+
+      <div id="toolbar">
+        <button id="toggle-setup" type="button" title="Show / hide setup (H)">☰ Setup</button>
+        <button id="fullscreen" type="button" title="Fullscreen (F)">⛶</button>
+      </div>
+
+      <aside id="setup-panel" class="panel" aria-label="Race setup">
+        <header>
+          <h1>HorseDraft</h1>
+          <p>Type names, one per line. Press <b>Start</b>. The horses pick the winner.</p>
+        </header>
+
+        <label class="field">
+          <span>Race name</span>
+          <input id="title" type="text" maxlength="60" placeholder="e.g. Friday raffle" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Names <em id="name-count">0 / 20</em></span>
+          <textarea id="names" rows="9" spellcheck="false" placeholder="Anna&#10;Bob&#10;Carla&#10;…"></textarea>
+        </label>
+        <p id="names-hint" class="hint" hidden></p>
+
+        <div class="field">
+          <span>Race length</span>
+          <div class="presets" id="duration-presets"></div>
+          <div class="inline">
+            <input id="duration" type="number" min="3" max="600" step="1" /> <span>seconds</span>
+          </div>
+        </div>
+
+        <label class="check">
+          <input id="show-numbers" type="checkbox" />
+          <span>Show race numbers on the horses</span>
+        </label>
+
+        <div class="field">
+          <span>Horses <small>(click a swatch to change its colour)</small></span>
+          <div id="horse-list" class="horse-list"></div>
+          <div class="row">
+            <button id="randomize-colors" type="button">🎲 Random colours</button>
+            <button id="shuffle-names" type="button">🔀 Shuffle lanes</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="save-race" type="button">💾 Save race…</button>
+          <button id="load-race" type="button">📂 Load race…</button>
+          <input id="load-file" type="file" accept=".json,application/json" hidden />
+        </div>
+
+        <button id="start" type="button" class="primary">▶ Start race</button>
+        <p class="hint keys">Space = start · H = hide panel · F = fullscreen · Esc = stop race</p>
+      </aside>
+
+      <div id="results" class="modal" hidden>
+        <div class="card" role="dialog" aria-labelledby="results-title">
+          <h2 id="results-title">Results</h2>
+          <p id="winner-line" class="winner-line"></p>
+          <ol id="results-list" class="results-list"></ol>
+          <div class="row wrap">
+            <button id="again" type="button" class="primary">🔁 Race again</button>
+            <button id="remove-winner" type="button">🏆 Remove winner &amp; race again</button>
+            <button id="copy-results" type="button">📋 Copy results</button>
+            <button id="back" type="button">← Back to setup</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
