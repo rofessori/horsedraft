@@ -93,7 +93,7 @@ if (args.timeline) {
     for (let h = 0; h < names.length; h++) {
       const p = Math.min(1, trackPositionAt(plan, h, t));
       const bar = "#".repeat(Math.round(p * width)).padEnd(width, ".");
-      console.log(`  ${String(names[h]).padEnd(14).slice(0, 14)} |${bar}|`);
+      console.log(`  ${String(names[h]).padEnd(14).slice(0, 14)} |${bar}| ${plan.roles[h]}`);
     }
     console.log();
   }

@@ -31,6 +31,8 @@ export interface RacePlan {
   finishTimes: number[];
   /** Seconds when the last horse crosses. */
   totalSec: number;
+  /** Indexed by horse: running style that shaped its curve (cosmetic, the order above is the draw). */
+  roles: PaceRole[];
   /** Indexed by horse: progress samples in [0,1] at k / SAMPLE_RATE, first 0, last exactly 1. */
   curves: Float32Array[];
 }
@@ -42,8 +44,32 @@ export interface RaceResult {
 }
 
 export interface PlanOptions {
-  /** Max seconds between the winner and the last horse (default 2.5). */
+  /** Seconds between the winner and the last horse. Default: finishSpreadSec(). */
   spreadSec?: number;
+}
+
+/**
+ * Running styles, like real horses have. They shape *how* a horse gets to its drawn finish time,
+ * never *whether*: frontrunners break fast and fade, closers sit back and kick late, stalkers sit
+ * just off the pace. The eventual winner is usually a stalker or a closer, so the early leader is
+ * more often than not somebody else, and one horse is always sent to the front to set the pace.
+ */
+export type PaceRole = "frontrunner" | "stalker" | "closer";
+
+const WINNER_ROLE_WEIGHTS: [PaceRole, number][] = [
+  ["frontrunner", 0.25],
+  ["stalker", 0.4],
+  ["closer", 0.35],
+];
+const FIELD_ROLE_WEIGHTS: [PaceRole, number][] = [
+  ["frontrunner", 0.1],
+  ["stalker", 0.45],
+  ["closer", 0.45],
+];
+
+/** How far behind the winner the last horse crosses, before per-race variation (~6 % of the race, plus a little per horse). */
+export function finishSpreadSec(durationSec: number, horseCount: number): number {
+  return Math.min(8, Math.max(1.2, durationSec * 0.06 + 0.12 * (horseCount - 1)));
 }
 
 /**
@@ -59,18 +85,28 @@ export function planRace(horseCount: number, durationSec: number, seed: number, 
   const rng = new Rng(seed);
   const finishOrder = rng.shuffle(Array.from({ length: horseCount }, (_, i) => i));
 
-  const spread = options.spreadSec ?? 2.5;
-  const gap = horseCount > 1 ? Math.min(0.4, spread / (horseCount - 1)) : 0;
+  // Finish times: the drawn gaps are random but always add up to the spread (±10 %), with the
+  // front of the field allowed to be tighter (photo finishes happen) than the back.
+  const spread = (options.spreadSec ?? finishSpreadSec(durationSec, horseCount)) * rng.range(0.9, 1.1);
   const finishTimes = new Array<number>(horseCount).fill(durationSec);
-  let t = durationSec;
-  for (let k = 1; k < horseCount; k++) {
-    t += gap * rng.range(0.55, 1.45);
-    finishTimes[finishOrder[k] as number] = t;
+  if (horseCount > 1) {
+    const weights = Array.from({ length: horseCount - 1 }, (_, k) => rng.range(k === 0 ? 0.25 : 0.5, 1.6));
+    const weightSum = weights.reduce((a, b) => a + b, 0);
+    let t = durationSec;
+    for (let k = 1; k < horseCount; k++) {
+      t += (spread * (weights[k - 1] as number)) / weightSum;
+      finishTimes[finishOrder[k] as number] = t;
+    }
   }
+
+  const roles = new Array<PaceRole | undefined>(horseCount).fill(undefined);
+  roles[finishOrder[0] as number] = pickWeighted(rng, WINNER_ROLE_WEIGHTS);
+  if (horseCount >= 3) roles[rng.pick(finishOrder.slice(1))] = "frontrunner"; // the pace-setter
+  const finalRoles = roles.map((r) => r ?? pickWeighted(rng, FIELD_ROLE_WEIGHTS));
 
   const curves: Float32Array[] = [];
   for (let h = 0; h < horseCount; h++) {
-    curves.push(buildCurve(rng, finishTimes[h] as number));
+    curves.push(buildCurve(rng, finishTimes[h] as number, finalRoles[h] as PaceRole));
   }
 
   return {
@@ -80,43 +116,102 @@ export function planRace(horseCount: number, durationSec: number, seed: number, 
     finishOrder,
     finishTimes,
     totalSec: Math.max(...finishTimes),
+    roles: finalRoles,
     curves,
   };
 }
 
-/** Speed profile = slow sinusoidal drift + one or two random bursts, always > 0, then integrated and normalised. */
-function buildCurve(rng: Rng, finishTime: number): Float32Array {
+function pickWeighted<T>(rng: Rng, weighted: readonly [T, number][]): T {
+  const total = weighted.reduce((s, [, w]) => s + w, 0);
+  let x = rng.range(0, total);
+  for (const [item, w] of weighted) {
+    x -= w;
+    if (x <= 0) return item;
+  }
+  return (weighted[weighted.length - 1] as [T, number])[0];
+}
+
+/** 0 below `a`, 1 above `b`, smooth in between. */
+function smoothstep(a: number, b: number, x: number): number {
+  const r = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return r * r * (3 - 2 * r);
+}
+
+/** Longest a horse takes to reach racing speed out of the gate. */
+export const MAX_GATE_BREAK_SEC = 3;
+
+/**
+ * Speed profile of one horse over its race, then integrated and normalised to reach exactly 1
+ * at its finish time. In order of appearance:
+ *   gate break  – from standstill to racing speed over ~2–4 s (shorter in very short races);
+ *                 fast and slow breakers exist
+ *   drift       – three slow waves (1.5–5 cycles per race), so gaps open and close all race long
+ *   moves       – one to three surges or lulls at random points
+ *   style       – frontrunners carry extra early pace that fades from the half-way mark,
+ *                 closers start easy, and everyone kicks in the final stretch (closers hardest)
+ * The speed never drops below 12 % of pace once the horse is going, so nobody ever stops.
+ */
+function buildCurve(rng: Rng, finishTime: number, role: PaceRole): Float32Array {
+  const T = finishTime;
+  const breakSec = Math.min(MAX_GATE_BREAK_SEC, Math.max(0.5, T * 0.16)) * rng.range(0.8, 1.3);
+
   const waves = Array.from({ length: 3 }, () => ({
-    amp: rng.range(0.5, 1),
-    omega: 2 * Math.PI * rng.range(0.08, 0.5),
+    amp: rng.range(0.4, 1),
+    cycles: rng.range(1.5, 5),
     phase: rng.range(0, 2 * Math.PI),
   }));
   const ampSum = waves.reduce((s, w) => s + w.amp, 0);
-  const bursts = Array.from({ length: rng.int(1, 2) }, () => ({
-    center: rng.range(0.15, 0.9) * finishTime,
-    width: rng.range(0.6, 2.0),
-    amp: rng.range(0.2, 0.6) * (rng.next() < 0.5 ? -1 : 1),
+  const moves = Array.from({ length: rng.int(1, 3) }, () => ({
+    center: rng.range(0.15, 0.85),
+    width: rng.range(0.05, 0.14),
+    amp: rng.range(0.12, 0.35) * (rng.next() < 0.5 ? -1 : 1),
   }));
 
+  let early: number;
+  let fade: number;
+  let kick: number;
+  switch (role) {
+    case "frontrunner":
+      early = rng.range(0.08, 0.18);
+      fade = -rng.range(0.05, 0.15);
+      kick = rng.range(0.04, 0.12);
+      break;
+    case "closer":
+      early = -rng.range(0.06, 0.14);
+      fade = 0;
+      kick = rng.range(0.2, 0.34);
+      break;
+    default:
+      early = rng.range(-0.04, 0.04);
+      fade = 0;
+      kick = rng.range(0.12, 0.22);
+  }
+
   const speedAt = (t: number): number => {
+    const u = t / T;
+    let v = 1;
     let s = 0;
-    for (const w of waves) s += w.amp * Math.sin(w.omega * t + w.phase);
-    let v = 1 + 0.5 * (s / ampSum);
-    for (const b of bursts) {
-      const d = (t - b.center) / b.width;
-      v += b.amp * Math.exp(-d * d);
+    for (const w of waves) s += w.amp * Math.sin(2 * Math.PI * w.cycles * u + w.phase);
+    v += 0.25 * (s / ampSum);
+    for (const m of moves) {
+      const d = (u - m.center) / m.width;
+      v += m.amp * Math.exp(-d * d);
     }
-    return Math.max(0.15, v);
+    v += early * (1 - smoothstep(0.45, 0.75, u));
+    v += fade * smoothstep(0.6, 0.95, u);
+    v += kick * smoothstep(0.7, 0.86, u);
+    v = Math.max(0.12, v);
+    return v * smoothstep(0, breakSec, t);
   };
 
-  const samples = Math.ceil(finishTime * SAMPLE_RATE) + 1;
+  const samples = Math.ceil(T * SAMPLE_RATE) + 1;
   const dt = 1 / SAMPLE_RATE;
   const curve = new Float32Array(samples);
   let acc = 0;
   let prev = speedAt(0);
   curve[0] = 0;
   for (let k = 1; k < samples; k++) {
-    const time = Math.min(k * dt, finishTime);
+    const time = Math.min(k * dt, T);
     const cur = speedAt(time);
     acc += 0.5 * (prev + cur) * (time - (k - 1) * dt);
     curve[k] = acc;

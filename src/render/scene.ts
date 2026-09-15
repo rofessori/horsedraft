@@ -27,7 +27,6 @@ export interface SceneState {
 /** Per-horse animation state that persists between frames (gallop phase, dust). */
 export interface HorseAnim {
   phase: number;
-  lastPos: number;
   dust: Dust[];
 }
 
@@ -40,10 +39,12 @@ interface Dust {
 }
 
 export function createAnim(): HorseAnim {
-  return { phase: 0, lastPos: 0, dust: [] };
+  return { phase: 0, dust: [] };
 }
 
-const STRIDE_PER_TRACK = 26; // gallop cycles across the full track length (at scale 1)
+/** Gallop cadence at racing speed (a real gallop is ~2.2 strides per second). Tied to time, not to
+ *  distance on screen, so a three-minute race still looks like galloping rather than slow motion. */
+const STRIDES_PER_SEC = 2.2;
 const PLACE_COLORS = ["#ffd23f", "#d9d9d9", "#d98c4a"];
 
 export function renderScene(
@@ -58,7 +59,6 @@ export function renderScene(
   drawTrack(ctx, stage, track);
 
   const { plan } = state;
-  const trackLen = track.finishX - track.startX;
   const racing = state.phase === "racing" || state.phase === "finished";
 
   // horses, bottom lane first so name pills of lower lanes never cover a horse above
@@ -73,9 +73,7 @@ export function renderScene(
       pos = trackPositionAt(plan, i, state.raceTime);
       speed = speedAt(plan, i, state.raceTime);
     }
-    const delta = pos - anim.lastPos;
-    anim.lastPos = pos;
-    anim.phase += delta * STRIDE_PER_TRACK * (2 * Math.PI) * (trackLen / 1400) / track.horseScale;
+    anim.phase += Math.min(1.6, speed) * STRIDES_PER_SEC * (2 * Math.PI) * dtSec;
 
     const x = horseX(track, pos);
     const ground = laneGroundY(track, i);
@@ -157,14 +155,13 @@ function drawHud(ctx: CanvasRenderingContext2D, stage: Stage, state: SceneState)
   ctx.textBaseline = "middle";
   ctx.fillText(title, boardX + 30, boardY + boardH / 2);
 
-  // clock: counts down like a race timer, then FINISH
+  // race clock: runs from the gun and stops on the winner's time, like the one at the track
   let clock: string;
   let clockColor = "#2a1f16";
-  if (state.phase === "setup") clock = formatClock(state.durationSec);
-  else if (state.phase === "countdown") clock = formatClock(state.durationSec);
-  else if (state.raceTime < state.durationSec) clock = formatClock(state.durationSec - state.raceTime);
+  if (state.phase === "setup" || state.phase === "countdown") clock = formatClock(0);
+  else if (state.raceTime < state.durationSec) clock = formatClock(state.raceTime);
   else {
-    clock = "FINISH";
+    clock = formatClock(state.durationSec);
     clockColor = "#c8261a";
   }
   ctx.font = font(54, 800, DISPLAY_FONT_STACK);

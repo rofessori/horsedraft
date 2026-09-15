@@ -66,6 +66,16 @@ test("frozen frames: countdown, mid-race, finish, and a full 20-horse field", as
   await page.evaluate(() => window.horsedraft.freeze(6));
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/06-twenty-horses.png` });
+
+  // the default race length: horses leave the gate slowly, and mid-race the field is strung out
+  await open(page, `names=${NAMES.join(",")}&seed=11&autostart=1&countdown=0&title=Saturday%20Stakes`);
+  expect(await page.evaluate(() => window.horsedraft.app.setup.durationSec)).toBe(60);
+  await page.evaluate(() => window.horsedraft.freeze(1.2));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${SHOTS}/07-gate-break.png` });
+  await page.evaluate(() => window.horsedraft.freeze(42));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${SHOTS}/08-long-race-midway.png` });
 });
 
 test("start button is disabled with fewer than two names", async ({ page }) => {

@@ -9,9 +9,11 @@ decide with a hat.
 
 - Up to 20 names (one per line), duplicates count as extra horses
 - Every horse gets a random coat colour; click a swatch to pick your own
-- Animated gallop, countdown, finish-line photo, results list with 1st / 2nd / 3rd
+- Animated gallop, 3-2-1-GO countdown, finish-line photo, results list with 1st / 2nd / 3rd
+- Races that look real: a slow break from the gate, a pace-setter who fades, closers who come from
+  behind, gaps that open and close, a sprint to the line, and every horse running through the finish
 - Name each race ("Friday raffle") — it is shown on the sign board, so recordings are self-explaining
-- Race length from 3 seconds to 10 minutes
+- Race length is one setting (default 60 s, 3 s to 10 min); it only changes the pacing, never the draw
 - "Remove winner & race again" for raffles where everyone wins at most once
 - Save / load races as small JSON files; results copy to the clipboard as text
 - Reproducible: every race shows its seed, and the same seed always gives the same race
@@ -83,6 +85,15 @@ The finishing order is drawn with a fair shuffle **before** the race starts, fro
 on screen. The animation then plays a race whose speed curves are shaped so that lead changes
 happen, but every horse crosses the line exactly in the drawn order. Watching the race is fun;
 the fairness comes from the shuffle.
+
+The race itself is modelled on real ones (see `src/core/race.ts`). Each horse gets a running
+style from the seed: a **frontrunner** breaks fast and fades, a **stalker** sits just off the pace,
+a **closer** starts easy and kicks hardest. One horse is always sent to the front to set the
+pace, and the winner is more often a stalker or closer, so the early leader usually is not the
+winner. On top of that every horse takes two to four seconds to reach racing speed, drifts
+slowly faster and slower all race long, makes one to three moves, and finds another gear in the
+final stretch. The length you pick is the winner's time; the field crosses over the next few
+seconds (longer races spread out more) and keeps galloping through the line.
 
 ## Development
 

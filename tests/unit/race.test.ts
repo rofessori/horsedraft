@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SAMPLE_RATE,
+  finishSpreadSec,
   hasFinished,
   isRaceOver,
   planRace,
@@ -26,7 +27,7 @@ describe("planRace", () => {
     const plan = planRace(20, 30, 99);
     expect([...plan.finishOrder].sort((x, y) => x - y)).toEqual(Array.from({ length: 20 }, (_, i) => i));
     expect(plan.finishTimes[winnerOf(plan)]).toBe(30);
-    expect(plan.totalSec).toBeLessThanOrEqual(30 + 2.5 * 1.45 + 1e-9);
+    expect(plan.totalSec).toBeLessThanOrEqual(30 + finishSpreadSec(30, 20) * 1.1 + 1e-9);
     // strictly increasing finish times along the drawn order
     for (let k = 1; k < 20; k++) {
       const prev = plan.finishTimes[plan.finishOrder[k - 1] as number] as number;
