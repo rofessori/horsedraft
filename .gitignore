@@ -1,0 +1,25 @@
+# dependencies / build output
+node_modules/
+dist/
+dist-electron/
+release/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---- Maintainer notes (encrypted in ai/vault, decrypted copies are local only) ----
+/.aikey
+/CLAUDE.md
+/AGENTS.md
+/.claude/settings.json
+/.claude/settings.local.json
+/.claude/agents/
+/.claude/skills/
+/docs/ai/
