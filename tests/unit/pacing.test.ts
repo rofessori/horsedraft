@@ -119,4 +119,45 @@ describe("realistic pacing", () => {
       expect(speedAt(plan, h, T - 0.5)).toBeGreaterThan(0.5);
     }
   });
+
+  it("speed varies substantially: every horse has fast spells and slow spells", () => {
+    let ok = 0;
+    let total = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const plan = planRace(8, 120, seed * 13);
+      for (let h = 0; h < plan.horseCount; h++) {
+        const T = plan.finishTimes[h] as number;
+        let max = 0;
+        let min = Infinity;
+        for (let t = 6; t < T - 0.5; t += 0.5) {
+          const v = speedAt(plan, h, t);
+          max = Math.max(max, v);
+          min = Math.min(min, v);
+        }
+        if (max >= 1.2 && min <= 0.85) ok++;
+        total++;
+      }
+    }
+    expect(ok / total).toBeGreaterThan(0.9);
+  });
+
+  it("the lead changes hands several times in a long race", () => {
+    const runs = 30;
+    let changes = 0;
+    let racesWithThreeLeaders = 0;
+    for (let seed = 1; seed <= runs; seed++) {
+      const plan = planRace(8, 120, seed * 7);
+      const leaders = new Set<number>();
+      let prev = standingsAt(plan, 1)[0];
+      for (let t = 2; t <= 118; t += 1) {
+        const now = standingsAt(plan, t)[0] as number;
+        if (now !== prev) changes++;
+        prev = now;
+        leaders.add(now);
+      }
+      if (leaders.size >= 3) racesWithThreeLeaders++;
+    }
+    expect(changes / runs).toBeGreaterThanOrEqual(3);
+    expect(racesWithThreeLeaders / runs).toBeGreaterThanOrEqual(0.6);
+  });
 });

@@ -202,6 +202,7 @@ export class App {
   /** Test hook: freeze the race clock at `t` seconds so a frame can be captured deterministically. */
   freeze(t: number | undefined): void {
     this.frozenRaceTime = t;
+    for (const a of this.anims) a.dust = []; // puffs from before the jump would float mid-track
   }
 
   private setPhase(phase: Phase): void {
@@ -257,7 +258,8 @@ export class App {
       title: this.setup.title,
       horses,
       showNumbers: this.setup.showNumbers,
-      durationSec: this.setup.durationSec,
+      // a running race keeps its own length even if the setup changes underneath it (H + a preset)
+      durationSec: this.plan?.durationSec ?? this.setup.durationSec,
       plan: this.plan,
       raceTime: this.plan ? this.raceTime() : 0,
       countdownSec: this.countdownSec,

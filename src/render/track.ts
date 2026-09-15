@@ -38,8 +38,8 @@ function specksFor(stage: Stage, track: TrackLayout): Speck[] {
   return specks;
 }
 
-/** Sky, sun, hills, fence: everything above the dirt. */
-export function drawBackdrop(ctx: CanvasRenderingContext2D, stage: Stage, timeSec: number): void {
+/** Sky, sun, hills, fence: everything above the dirt. `camera` scrolls the near scenery (parallax). */
+export function drawBackdrop(ctx: CanvasRenderingContext2D, stage: Stage, timeSec: number, camera = 0): void {
   const horizon = HUD_HEIGHT - 10;
   const sky = ctx.createLinearGradient(0, 0, 0, horizon + 60);
   sky.addColorStop(0, SKY_TOP);
@@ -69,16 +69,17 @@ export function drawBackdrop(ctx: CanvasRenderingContext2D, stage: Stage, timeSe
   ctx.arc(sunX, sunY, 78, 0, Math.PI * 2);
   ctx.fill();
 
-  // clouds
-  drawCloud(ctx, ((timeSec * 6) % (stage.width + 400)) - 200, 62, 1);
-  drawCloud(ctx, ((timeSec * 4 + 900) % (stage.width + 400)) - 200, 30, 0.7);
+  // clouds (drift with time, and a little with the camera)
+  const wrap = (x: number): number => ((x % (stage.width + 400)) + stage.width + 400) % (stage.width + 400) - 200;
+  drawCloud(ctx, wrap(timeSec * 6 - camera * 0.1), 62, 1);
+  drawCloud(ctx, wrap(timeSec * 4 + 900 - camera * 0.1), 30, 0.7);
 
-  // hills
+  // hills: far ones barely move, near ones a little more
   ctx.fillStyle = HILL_FAR;
   ctx.beginPath();
   ctx.moveTo(0, horizon + 60);
   for (let x = 0; x <= stage.width; x += 40) {
-    ctx.lineTo(x, horizon + 12 - 40 * Math.abs(Math.sin(x / 330 + 1)));
+    ctx.lineTo(x, horizon + 12 - 40 * Math.abs(Math.sin((x + camera * 0.15) / 330 + 1)));
   }
   ctx.lineTo(stage.width, horizon + 60);
   ctx.closePath();
@@ -87,13 +88,13 @@ export function drawBackdrop(ctx: CanvasRenderingContext2D, stage: Stage, timeSe
   ctx.beginPath();
   ctx.moveTo(0, horizon + 60);
   for (let x = 0; x <= stage.width; x += 40) {
-    ctx.lineTo(x, horizon + 32 - 26 * Math.abs(Math.sin(x / 210 + 2.2)));
+    ctx.lineTo(x, horizon + 32 - 26 * Math.abs(Math.sin((x + camera * 0.35) / 210 + 2.2)));
   }
   ctx.lineTo(stage.width, horizon + 60);
   ctx.closePath();
   ctx.fill();
 
-  // white fence along the horizon
+  // white fence along the horizon; the posts scroll with the track
   const fenceY = horizon + 34;
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 5;
@@ -104,7 +105,9 @@ export function drawBackdrop(ctx: CanvasRenderingContext2D, stage: Stage, timeSe
     ctx.lineTo(stage.width, fenceY + dy);
     ctx.stroke();
   }
-  for (let x = 30; x < stage.width; x += 110) {
+  const postSpacing = 110;
+  const postPhase = ((30 - camera) % postSpacing + postSpacing) % postSpacing;
+  for (let x = postPhase; x < stage.width; x += postSpacing) {
     ctx.beginPath();
     ctx.moveTo(x, fenceY - 8);
     ctx.lineTo(x, fenceY + 24);
@@ -126,65 +129,90 @@ function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, s: numbe
   }
 }
 
-/** Dirt, lanes, start and finish lines. */
-export function drawTrack(ctx: CanvasRenderingContext2D, stage: Stage, track: TrackLayout): void {
+/**
+ * Dirt, lanes, start and finish lines. The track is `laps` screen-widths long in world space;
+ * `camera` is how far the world has scrolled left (0 for short, single-screen races).
+ */
+export function drawTrack(ctx: CanvasRenderingContext2D, stage: Stage, track: TrackLayout, camera = 0, laps = 1): void {
   const dirtTop = HUD_HEIGHT + 20;
   ctx.fillStyle = DIRT;
   ctx.fillRect(0, dirtTop, stage.width, stage.height - dirtTop);
 
+  const wrapX = (x: number): number => (((x - camera) % stage.width) + stage.width) % stage.width;
   for (const s of specksFor(stage, track)) {
     ctx.fillStyle = s.dark ? "rgba(90,50,20,0.18)" : "rgba(255,230,190,0.25)";
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.arc(wrapX(s.x), s.y, s.r, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // lane separators
+  // lane separators; the dash pattern scrolls with the camera so the ground visibly moves
   ctx.strokeStyle = LANE_LINE;
   ctx.lineWidth = 2;
   ctx.setLineDash([18, 14]);
+  ctx.lineDashOffset = camera % 32;
   for (let i = 1; i < track.lanes; i++) {
     const y = track.top + track.laneHeight * i;
     ctx.beginPath();
-    ctx.moveTo(40, y);
-    ctx.lineTo(stage.width - 40, y);
+    ctx.moveTo(-40, y);
+    ctx.lineTo(stage.width + 40, y);
     ctx.stroke();
   }
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
 
   const laneTop = track.top - 6;
   const laneBottom = track.top + track.laneHeight * track.lanes + 6;
+  const screenTrack = track.finishX - track.startX;
+  const startX = track.startX - camera;
+  const finishX = track.startX + laps * screenTrack - camera;
 
-  // start line
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillRect(track.startX - 3, laneTop, 6, laneBottom - laneTop);
-
-  // finish line: checkered band
-  const bandW = 26;
-  const cell = 13;
-  for (let y = laneTop; y < laneBottom; y += cell) {
-    for (let cx = 0; cx < 2; cx++) {
-      const dark = (Math.floor((y - laneTop) / cell) + cx) % 2 === 0;
-      ctx.fillStyle = dark ? "#222" : "#fff";
-      ctx.fillRect(track.finishX - bandW / 2 + cx * cell, y, cell, Math.min(cell, laneBottom - y));
-    }
+  // quarter poles along the far rail (every quarter of a screen-width of track), a sense of speed
+  const poleSpacing = screenTrack / 4;
+  for (let k = 1; k < 4 * laps; k++) {
+    const x = track.startX + k * poleSpacing - camera;
+    if (x < -20 || x > stage.width + 20) continue;
+    // planted at the top edge of the dirt, below the HUD captions
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x - 3, dirtTop + 2, 6, 34);
+    ctx.fillStyle = k % 4 === 0 ? "#e8352b" : "#3a8f3a";
+    ctx.beginPath();
+    ctx.arc(x, dirtTop + 2, 7, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // finish post + flag
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(track.finishX - 4, laneTop - 46, 8, 46);
-  ctx.fillStyle = "#e8352b";
-  ctx.beginPath();
-  ctx.moveTo(track.finishX + 4, laneTop - 46);
-  ctx.lineTo(track.finishX + 74, laneTop - 32);
-  ctx.lineTo(track.finishX + 4, laneTop - 18);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = "700 14px Arial, sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText("FINISH", track.finishX + 12, laneTop - 32);
+  // start line
+  if (startX > -10 && startX < stage.width + 10) {
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillRect(startX - 3, laneTop, 6, laneBottom - laneTop);
+  }
+
+  // finish line: checkered band, post and flag (only once it scrolls into view)
+  if (finishX > -100 && finishX < stage.width + 100) {
+    const bandW = 26;
+    const cell = 13;
+    for (let y = laneTop; y < laneBottom; y += cell) {
+      for (let cx = 0; cx < 2; cx++) {
+        const dark = (Math.floor((y - laneTop) / cell) + cx) % 2 === 0;
+        ctx.fillStyle = dark ? "#222" : "#fff";
+        ctx.fillRect(finishX - bandW / 2 + cx * cell, y, cell, Math.min(cell, laneBottom - y));
+      }
+    }
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(finishX - 4, laneTop - 46, 8, 46);
+    ctx.fillStyle = "#e8352b";
+    ctx.beginPath();
+    ctx.moveTo(finishX + 4, laneTop - 46);
+    ctx.lineTo(finishX + 74, laneTop - 32);
+    ctx.lineTo(finishX + 4, laneTop - 18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "700 14px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("FINISH", finishX + 12, laneTop - 32);
+  }
 
   // darker rail at the bottom
   ctx.fillStyle = DIRT_DARK;

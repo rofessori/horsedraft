@@ -6,10 +6,17 @@ First version.
 
 - Race up to 20 named horses; fair pre-drawn finishing order with an animated race that reveals it
 - Realistic pacing: standing start with a gate break, running styles (frontrunner / stalker /
-  closer) with a pace-setter and late kicks, slow drift plus surges and lulls so gaps open and
-  close, a finish spread that grows with the race length; gallop cadence tied to time so long
-  races do not look like slow motion; the sign-board clock runs up and stops on the winner's time
-- Default race length 60 s with presets 30 s to 3 min (the length only changes the pacing)
+  closer) with a pace-setter and late kicks, slow drift plus a surge or lull every ~15 s so gaps
+  open and close, a finish spread that grows with the race length; gallop cadence tied to time
+  so long races do not look like slow motion; the sign-board clock runs up and stops on the
+  winner's time
+- Long races (over ~30 s) run on a track up to five screens long with the camera travelling
+  with the leader; quarter-poles, fence posts and the ground scroll past. Short races keep the
+  fixed full-track view
+- Race call under the sign board: "And they're off!", lead changes, moves, the final stretch,
+  photo finishes
+- Default race length 2 minutes with presets 1 to 5 min (the length only changes the pacing)
+- `npm run strip`: capture a whole race as one contact-sheet PNG (`docs/race-strip.png`)
 - Random coat colours, per-horse colour picker, random-all and shuffle-lanes
 - Race name on the sign board, countdown clock, 3-2-1 countdown, winner banner, place badges,
   results dialog with copy-to-clipboard

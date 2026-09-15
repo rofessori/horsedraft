@@ -29,6 +29,7 @@ HorseDraft is an ordinary window, so OBS Studio can capture it like any app.
 - For a fully bare screen (no toolbar even before the race) launch with `?clean=1`, e.g. in the
   browser: `http://localhost:5173/?clean=1&autostart=1`.
 - Longer races (60 s and up) leave time for commentary; the lead changes are spread over the
-  whole race, not just the end.
+  whole race, not just the end. Over about 30 s the camera travels with the field and the race
+  call under the board names movers and lead changes, so a recording narrates itself.
 - "Remove winner & race again" runs the next round immediately with the winner removed, which is
   what you want for a multi-prize raffle. Record it as one long take or one file per round.

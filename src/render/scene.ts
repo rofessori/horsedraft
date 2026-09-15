@@ -1,8 +1,10 @@
 import { contrastText, shade } from "../core/palette";
 import type { HorseSpec, RacePlan } from "../core/race";
 import { hasFinished, speedAt, trackPositionAt, winnerOf } from "../core/race";
+import { raceCallAt } from "../core/raceCall";
+import { cameraOffset, worldLaps, worldX } from "./camera";
 import { drawHorse } from "./horse";
-import { HUD_HEIGHT, horseX, laneCenterY, laneGroundY, layoutTrack, type Stage } from "./stage";
+import { HUD_HEIGHT, laneCenterY, laneGroundY, layoutTrack, type Stage } from "./stage";
 import { DISPLAY_FONT_STACK, drawPill, fitFont, font, formatClock, ordinal, roundRect } from "./text";
 import { drawBackdrop, drawSignBoard, drawTrack } from "./track";
 
@@ -30,6 +32,7 @@ export interface HorseAnim {
   dust: Dust[];
 }
 
+/** A puff of dust; `x` is a world coordinate (stage px from the start line) so it stays on the ground while the camera moves. */
 interface Dust {
   x: number;
   y: number;
@@ -46,6 +49,11 @@ export function createAnim(): HorseAnim {
  *  distance on screen, so a three-minute race still looks like galloping rather than slow motion. */
 const STRIDES_PER_SEC = 2.2;
 const PLACE_COLORS = ["#ffd23f", "#d9d9d9", "#d98c4a"];
+/** Horses this far outside the stage (name pill included) are not drawn. */
+const CULL_LEFT = 400;
+const CULL_RIGHT = 200;
+const CALL_FONT_SIZE = 21;
+const CALL_MAX_WIDTH_FRACTION = 0.6;
 
 export function renderScene(
   ctx: CanvasRenderingContext2D,
@@ -55,11 +63,19 @@ export function renderScene(
   dtSec: number,
 ): void {
   const track = layoutTrack(stage, state.horses.length);
-  drawBackdrop(ctx, stage, state.ambientTime);
-  drawTrack(ctx, stage, track);
-
   const { plan } = state;
   const racing = state.phase === "racing" || state.phase === "finished";
+
+  // world geometry: long races run over several screen-widths and the camera follows the leader
+  const laps = worldLaps(state.durationSec);
+  const screenTrack = track.finishX - track.startX;
+  const positions = state.horses.map((_, i) => (plan && racing ? trackPositionAt(plan, i, state.raceTime) : 0));
+  const leaderWorld = Math.max(0, ...positions.map((p) => worldX(p, laps, screenTrack)));
+  const camera = plan && racing ? cameraOffset(leaderWorld, laps, screenTrack) : 0;
+  const toScreen = (world: number): number => track.startX + world - camera;
+
+  drawBackdrop(ctx, stage, state.ambientTime, camera);
+  drawTrack(ctx, stage, track, camera, laps);
 
   // horses, bottom lane first so name pills of lower lanes never cover a horse above
   for (let i = state.horses.length - 1; i >= 0; i--) {
@@ -67,36 +83,35 @@ export function renderScene(
     const anim = anims[i] ?? createAnim();
     anims[i] = anim;
 
-    let pos = 0;
-    let speed = 0;
-    if (plan && racing) {
-      pos = trackPositionAt(plan, i, state.raceTime);
-      speed = speedAt(plan, i, state.raceTime);
-    }
+    const pos = positions[i] as number;
+    const speed = plan && racing ? speedAt(plan, i, state.raceTime) : 0;
     anim.phase += Math.min(1.6, speed) * STRIDES_PER_SEC * (2 * Math.PI) * dtSec;
 
-    const x = horseX(track, pos);
+    const world = worldX(pos, laps, screenTrack);
+    const x = toScreen(world);
     const ground = laneGroundY(track, i);
     const cy = laneCenterY(track, i);
 
     // dust behind fast horses
     if (speed > 0.9 && dtSec > 0 && anim.dust.length < 14) {
-      anim.dust.push({ x: x - 30 * track.horseScale, y: ground - 2, r: 4 + Math.random() * 5, age: 0, vx: -40 });
+      anim.dust.push({ x: world - 30 * track.horseScale, y: ground - 2, r: 4 + Math.random() * 5, age: 0, vx: -40 });
     }
     for (const d of anim.dust) {
       d.age += dtSec;
       d.x += d.vx * dtSec;
       d.r += 12 * dtSec;
       ctx.beginPath();
-      ctx.arc(d.x, d.y - d.age * 20, d.r * track.horseScale, 0, Math.PI * 2);
+      ctx.arc(toScreen(d.x), d.y - d.age * 20, d.r * track.horseScale, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(230,200,160,${Math.max(0, 0.5 - d.age * 0.9)})`;
       ctx.fill();
     }
     anim.dust = anim.dust.filter((d) => d.age < 0.6);
 
-    // name pill trailing the horse
-    const pillSize = Math.max(13, Math.min(30, track.laneHeight * 0.42));
+    // a horse that has dropped out of the picture (behind the camera) costs nothing to skip
+    if (x < -CULL_LEFT || x > stage.width + CULL_RIGHT) continue;
+
     // name pill trails the horse, clear of the tail (tail tip is ~58 units behind the body centre)
+    const pillSize = Math.max(13, Math.min(30, track.laneHeight * 0.42));
     const pillRight = x - 64 * track.horseScale;
     const pillWidth = drawPill(ctx, pillRight, cy, {
       fill: horse.color,
@@ -175,6 +190,22 @@ function drawHud(ctx: CanvasRenderingContext2D, stage: Stage, state: SceneState)
   ctx.fillStyle = "rgba(42,31,22,0.55)";
   const seedText = state.plan ? `${state.horses.length} horses · seed ${state.plan.seed}` : `${state.horses.length} horses`;
   ctx.fillText(seedText, boardX + boardW - 30, boardY + boardH + 16);
+
+  // the race call: one line of commentary on a chip hanging under the board
+  if (state.plan && (state.phase === "racing" || state.phase === "finished")) {
+    const call = raceCallAt(state.plan, state.horses.map((h) => h.name), state.raceTime);
+    if (call.text) {
+      drawPill(ctx, boardX + 24, boardY + boardH + 18, {
+        fill: "#f7f4ea",
+        text: call.text,
+        textColor: "#2a1f16",
+        fontSize: CALL_FONT_SIZE,
+        outline: "#3a2a1a",
+        align: "left",
+        maxWidth: boardW * CALL_MAX_WIDTH_FRACTION,
+      });
+    }
+  }
 }
 
 function drawCountdown(ctx: CanvasRenderingContext2D, stage: Stage, state: SceneState): void {

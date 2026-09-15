@@ -27,7 +27,8 @@
     "electron:dev": "npm run electron:build && cross-env HORSEDRAFT_DEV_URL=http://localhost:5173 electron .",
     "app": "npm run build && npm run electron:build && electron .",
     "dist:mac": "npm run build && npm run electron:build && electron-builder --mac",
-    "e2e:app": "npm run build && npm run electron:build && playwright test -c playwright.electron.config.ts"
+    "e2e:app": "npm run build && npm run electron:build && playwright test -c playwright.electron.config.ts",
+    "strip": "tsx scripts/race-strip.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

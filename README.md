@@ -11,13 +11,19 @@ decide with a hat.
 - Every horse gets a random coat colour; click a swatch to pick your own
 - Animated gallop, 3-2-1-GO countdown, finish-line photo, results list with 1st / 2nd / 3rd
 - Races that look real: a slow break from the gate, a pace-setter who fades, closers who come from
-  behind, gaps that open and close, a sprint to the line, and every horse running through the finish
+  behind, a move every few seconds so gaps open and close, a sprint to the line, and every horse
+  running through the finish. Long races run on a track several screens long with the camera
+  travelling alongside the leaders, quarter-poles flying by, and a race call under the sign board
 - Name each race ("Friday raffle") — it is shown on the sign board, so recordings are self-explaining
-- Race length is one setting (default 60 s, 3 s to 10 min); it only changes the pacing, never the draw
+- Race length is one setting (default 2 minutes, 3 s to 10 min); it only changes the pacing, never the draw
 - "Remove winner & race again" for raffles where everyone wins at most once
 - Save / load races as small JSON files; results copy to the clipboard as text
 - Reproducible: every race shows its seed, and the same seed always gives the same race
 - Nothing to sign up for, no ads, no network: it is a local app
+
+A two-minute race in twelve frames (`npm run strip` makes one of these for any seed):
+
+![A race as a film strip](docs/race-strip.png)
 
 ## Run it on a Mac
 
@@ -91,9 +97,16 @@ style from the seed: a **frontrunner** breaks fast and fades, a **stalker** sits
 a **closer** starts easy and kicks hardest. One horse is always sent to the front to set the
 pace, and the winner is more often a stalker or closer, so the early leader usually is not the
 winner. On top of that every horse takes two to four seconds to reach racing speed, drifts
-slowly faster and slower all race long, makes one to three moves, and finds another gear in the
-final stretch. The length you pick is the winner's time; the field crosses over the next few
-seconds (longer races spread out more) and keeps galloping through the line.
+slowly faster and slower all race long, makes a move (a surge or a lull) every fifteen seconds
+or so, and finds another gear in the final stretch. The length you pick is the winner's time;
+the field crosses over the next few seconds (longer races spread out more) and keeps galloping
+through the line.
+
+Races longer than about 30 seconds do not fit on one screen at a believable speed, so the track
+becomes several screens long (up to five) and the camera follows the leader, the way a broadcast
+does. Short races keep the whole track in view. The race call under the sign board ("And they're
+off!", "Ben takes the lead!", "Final stretch! Anna leads", "Photo finish!") is computed from the
+same plan, so it is as deterministic as the race.
 
 ## Development
 
@@ -104,6 +117,7 @@ npm test             # unit tests (vitest)
 npm run e2e          # Playwright: runs real races headless and saves screenshots to test-results/shots
 npm run e2e:app      # Playwright drives the real Electron app (builds first); screenshots go to the same folder
 npm run race -- --names "Anna,Bob,Carl" --duration 10 --seed 42 --timeline   # a race in the terminal
+npm run strip -- --seed 42 --frames 12       # a whole race as one contact-sheet PNG (needs npm run build)
 ```
 
 Layout: `src/core` is the pure simulation (no DOM, fully unit-tested), `src/render` draws the

@@ -8,7 +8,7 @@ export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
   retries: 0,
-  outputDir: "test-results",
+  outputDir: "test-results/e2e",
   use: {
     baseURL: "http://localhost:4173",
     viewport: { width: 1600, height: 900 },

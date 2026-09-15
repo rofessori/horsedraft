@@ -79,7 +79,3 @@ export function laneGroundY(track: TrackLayout, lane: number): number {
 export function laneCenterY(track: TrackLayout, lane: number): number {
   return track.top + track.laneHeight * (lane + 0.5);
 }
-
-export function horseX(track: TrackLayout, position: number): number {
-  return track.startX + (track.finishX - track.startX) * position;
-}

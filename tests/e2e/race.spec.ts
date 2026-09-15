@@ -67,15 +67,22 @@ test("frozen frames: countdown, mid-race, finish, and a full 20-horse field", as
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/06-twenty-horses.png` });
 
-  // the default race length: horses leave the gate slowly, and mid-race the field is strung out
+  // the default (long) race: a slow gate break, then the camera travels with the field over a
+  // track several screens long, quarter poles scrolling by, the race call under the board
   await open(page, `names=${NAMES.join(",")}&seed=11&autostart=1&countdown=0&title=Saturday%20Stakes`);
-  expect(await page.evaluate(() => window.horsedraft.app.setup.durationSec)).toBe(60);
-  await page.evaluate(() => window.horsedraft.freeze(1.2));
+  expect(await page.evaluate(() => window.horsedraft.app.setup.durationSec)).toBe(120);
+  await page.evaluate(() => window.horsedraft.freeze(1.5));
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${SHOTS}/07-gate-break.png` });
-  await page.evaluate(() => window.horsedraft.freeze(42));
+  await page.evaluate(() => window.horsedraft.freeze(45));
+  // changing the length mid-race (H shows the panel) must not rescale the race that is running
+  await page.evaluate(() => window.horsedraft.app.updateSetup({ durationSec: 300 }));
+  expect(await page.evaluate(() => window.horsedraft.app.plan?.durationSec)).toBe(120);
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${SHOTS}/08-long-race-midway.png` });
+  await page.screenshot({ path: `${SHOTS}/08-long-race-travelling.png` });
+  await page.evaluate(() => window.horsedraft.freeze(112));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${SHOTS}/09-long-race-stretch.png` });
 });
 
 test("start button is disabled with fewer than two names", async ({ page }) => {

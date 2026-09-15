@@ -139,14 +139,17 @@ function smoothstep(a: number, b: number, x: number): number {
 
 /** Longest a horse takes to reach racing speed out of the gate. */
 export const MAX_GATE_BREAK_SEC = 3;
+/** Roughly one surge or lull per horse every this many seconds, at most MAX_MOVES per race. */
+export const MOVE_EVERY_SEC = 15;
+export const MAX_MOVES = 10;
 
 /**
  * Speed profile of one horse over its race, then integrated and normalised to reach exactly 1
  * at its finish time. In order of appearance:
  *   gate break  – from standstill to racing speed over ~2–4 s (shorter in very short races);
  *                 fast and slow breakers exist
- *   drift       – three slow waves (1.5–5 cycles per race), so gaps open and close all race long
- *   moves       – one to three surges or lulls at random points
+ *   drift       – three slow waves (6–20 s periods), so gaps open and close all race long
+ *   moves       – a surge or a lull every ~15 s (1–10 per race), each lasting a few seconds
  *   style       – frontrunners carry extra early pace that fades from the half-way mark,
  *                 closers start easy, and everyone kicks in the final stretch (closers hardest)
  * The speed never drops below 12 % of pace once the horse is going, so nobody ever stops.
@@ -157,15 +160,20 @@ function buildCurve(rng: Rng, finishTime: number, role: PaceRole): Float32Array 
 
   const waves = Array.from({ length: 3 }, () => ({
     amp: rng.range(0.4, 1),
-    cycles: rng.range(1.5, 5),
+    omega: (2 * Math.PI) / rng.range(6, 20),
     phase: rng.range(0, 2 * Math.PI),
   }));
   const ampSum = waves.reduce((s, w) => s + w.amp, 0);
-  const moves = Array.from({ length: rng.int(1, 3) }, () => ({
-    center: rng.range(0.15, 0.85),
-    width: rng.range(0.05, 0.14),
-    amp: rng.range(0.12, 0.35) * (rng.next() < 0.5 ? -1 : 1),
-  }));
+  const moveCount = Math.min(MAX_MOVES, Math.max(1, Math.round(T / MOVE_EVERY_SEC)));
+  const moves = Array.from({ length: moveCount }, () => {
+    // moves last a few seconds, shrink for very short races, and never start before the gate break settles
+    const width = rng.range(1.5, 4) * Math.min(1, T / MOVE_EVERY_SEC);
+    return {
+      center: Math.min(0.92 * T, Math.max(0.15 * T + width, rng.range(0.15, 0.92) * T)),
+      width,
+      amp: rng.range(0.2, 0.5) * (rng.next() < 0.5 ? -1 : 1),
+    };
+  });
 
   let early: number;
   let fade: number;
@@ -174,27 +182,27 @@ function buildCurve(rng: Rng, finishTime: number, role: PaceRole): Float32Array 
     case "frontrunner":
       early = rng.range(0.08, 0.18);
       fade = -rng.range(0.05, 0.15);
-      kick = rng.range(0.04, 0.12);
+      kick = rng.range(0.05, 0.14);
       break;
     case "closer":
       early = -rng.range(0.06, 0.14);
       fade = 0;
-      kick = rng.range(0.2, 0.34);
+      kick = rng.range(0.22, 0.36);
       break;
     default:
       early = rng.range(-0.04, 0.04);
       fade = 0;
-      kick = rng.range(0.12, 0.22);
+      kick = rng.range(0.14, 0.24);
   }
 
   const speedAt = (t: number): number => {
     const u = t / T;
     let v = 1;
     let s = 0;
-    for (const w of waves) s += w.amp * Math.sin(2 * Math.PI * w.cycles * u + w.phase);
+    for (const w of waves) s += w.amp * Math.sin(w.omega * t + w.phase);
     v += 0.25 * (s / ampSum);
     for (const m of moves) {
-      const d = (u - m.center) / m.width;
+      const d = (t - m.center) / m.width;
       v += m.amp * Math.exp(-d * d);
     }
     v += early * (1 - smoothstep(0.45, 0.75, u));
