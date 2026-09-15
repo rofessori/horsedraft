@@ -17,6 +17,11 @@ First version.
   photo finishes
 - Default race length 2 minutes with presets 1 to 5 min (the length only changes the pacing)
 - `npm run strip`: capture a whole race as one contact-sheet PNG (`docs/race-strip.png`)
+- `scripts/desktop-shortcut.sh` puts a shortcut to the built app on the Desktop
+- README cut to the essentials; keys, URL parameters, race files and development moved to
+  `docs/USAGE.md`
+- `.claude/settings.json` joins the encrypted maintainer notes (a fresh clone runs
+  `npm run vault:unlock` once)
 - Random coat colours, per-horse colour picker, random-all and shuffle-lanes
 - Race name on the sign board, countdown clock, 3-2-1 countdown, winner banner, place badges,
   results dialog with copy-to-clipboard

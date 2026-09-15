@@ -1,132 +1,15 @@
 # HorseDraft 🐎
 
-A free horse-race **name randomizer** for macOS (and any browser). Type up to 20 names, press
-Start, and a field of cartoon horses gallops across the track to pick the winner and the full
-finishing order. Made for raffles, "who goes first", and anything else you would otherwise
-decide with a hat.
+Free horse-race name randomizer for the Mac. Type up to 20 names, press Start, the horses decide.
 
-![HorseDraft mid-race](docs/screenshot.png)
-
-- Up to 20 names (one per line), duplicates count as extra horses
-- Every horse gets a random coat colour; click a swatch to pick your own
-- Animated gallop, 3-2-1-GO countdown, finish-line photo, results list with 1st / 2nd / 3rd
-- Races that look real: a slow break from the gate, a pace-setter who fades, closers who come from
-  behind, a move every few seconds so gaps open and close, a sprint to the line, and every horse
-  running through the finish. Long races run on a track several screens long with the camera
-  travelling alongside the leaders, quarter-poles flying by, and a race call under the sign board
-- Name each race ("Friday raffle") — it is shown on the sign board, so recordings are self-explaining
-- Race length is one setting (default 2 minutes, 3 s to 10 min); it only changes the pacing, never the draw
-- "Remove winner & race again" for raffles where everyone wins at most once
-- Save / load races as small JSON files; results copy to the clipboard as text
-- Reproducible: every race shows its seed, and the same seed always gives the same race
-- Nothing to sign up for, no ads, no network: it is a local app
-
-A two-minute race in twelve frames (`npm run strip` makes one of these for any seed):
-
-![A race as a film strip](docs/race-strip.png)
-
-## Run it on a Mac
+![A race in twelve frames](docs/race-strip.png)
 
 ```bash
-git clone https://github.com/rofessori/horsedraft.git
-cd horsedraft
-./scripts/bootstrap-mac.sh     # installs Node 22 (nvm or Homebrew) if needed, then npm install
-npm run app                    # the desktop app
+git clone https://github.com/rofessori/horsedraft.git && cd horsedraft
+./scripts/bootstrap-mac.sh && npm run app        # or npm run dist:mac for a .dmg
 ```
 
-Node 22 or newer is required. With nvm, `nvm use` picks it up from `.nvmrc`.
+Keys, URL parameters, race files, development: [docs/USAGE.md](docs/USAGE.md). Recording with
+OBS: [docs/RECORDING.md](docs/RECORDING.md).
 
-Build a proper `.app` / `.dmg` you can keep in Applications:
-
-```bash
-npm run dist:mac               # -> release/HorseDraft-<version>-arm64.dmg
-```
-
-The app is unsigned, so the first launch needs a right-click → Open (or
-`xattr -dr com.apple.quarantine /Applications/HorseDraft.app`).
-
-Prefer a browser? `npm run dev` and open <http://localhost:5173>.
-
-## Using it
-
-| Key | Action |
-| --- | --- |
-| `Space` / `Enter` | Start the race |
-| `H` | Hide / show the setup panel |
-| `F` | Fullscreen |
-| `Esc` | Stop the race, back to setup |
-| `R` | Race again (on the results screen) |
-
-URL parameters work in the browser and in the app (handy for OBS scenes and scripts):
-
-```
-?names=Anna,Bob,Carl&title=Friday&duration=20&numbers=1&seed=42&autostart=1&countdown=0&clean=1
-```
-
-`seed` can be a number or any word. `clean=1` hides the small toolbar so only the track is on screen.
-
-## Recording a race with OBS
-
-See [docs/RECORDING.md](docs/RECORDING.md). Short version: add a *macOS Screen Capture* source
-for the HorseDraft window, press `H` to hide the panel, `Space` to start.
-
-## Race files
-
-"Save race…" writes `<race-name>.horserace.json`:
-
-```json
-{
-  "format": "horsedraft-race",
-  "version": 1,
-  "title": "Friday raffle",
-  "durationSec": 20,
-  "showNumbers": true,
-  "horses": [{ "name": "Anna", "color": "#e6194b" }, { "name": "Bob", "color": "#4363d8" }]
-}
-```
-
-## How the draw works
-
-The finishing order is drawn with a fair shuffle **before** the race starts, from a seed shown
-on screen. The animation then plays a race whose speed curves are shaped so that lead changes
-happen, but every horse crosses the line exactly in the drawn order. Watching the race is fun;
-the fairness comes from the shuffle.
-
-The race itself is modelled on real ones (see `src/core/race.ts`). Each horse gets a running
-style from the seed: a **frontrunner** breaks fast and fades, a **stalker** sits just off the pace,
-a **closer** starts easy and kicks hardest. One horse is always sent to the front to set the
-pace, and the winner is more often a stalker or closer, so the early leader usually is not the
-winner. On top of that every horse takes two to four seconds to reach racing speed, drifts
-slowly faster and slower all race long, makes a move (a surge or a lull) every fifteen seconds
-or so, and finds another gear in the final stretch. The length you pick is the winner's time;
-the field crosses over the next few seconds (longer races spread out more) and keeps galloping
-through the line.
-
-Races longer than about 30 seconds do not fit on one screen at a believable speed, so the track
-becomes several screens long (up to five) and the camera follows the leader, the way a broadcast
-does. Short races keep the whole track in view. The race call under the sign board ("And they're
-off!", "Ben takes the lead!", "Final stretch! Anna leads", "Photo finish!") is computed from the
-same plan, so it is as deterministic as the race.
-
-## Development
-
-```bash
-npm run dev          # Vite dev server
-npm run check        # typecheck + unit tests + production build
-npm test             # unit tests (vitest)
-npm run e2e          # Playwright: runs real races headless and saves screenshots to test-results/shots
-npm run e2e:app      # Playwright drives the real Electron app (builds first); screenshots go to the same folder
-npm run race -- --names "Anna,Bob,Carl" --duration 10 --seed 42 --timeline   # a race in the terminal
-npm run strip -- --seed 42 --frames 12       # a whole race as one contact-sheet PNG (needs npm run build)
-```
-
-Layout: `src/core` is the pure simulation (no DOM, fully unit-tested), `src/render` draws the
-scene on a canvas, `src/ui` owns the panels and the state machine, `electron/` is the thin
-desktop shell (CommonJS `.cts` files, because Electron loads its main process with `require`).
-
-Maintainer notes live encrypted under `ai/vault/`; `npm run vault:unlock` opens them for whoever
-holds the key file.
-
-## Credits
-
-Made by **op**, 2026. MIT licensed, see [LICENSE](LICENSE).
+Made by **op**, 2026. MIT licensed.

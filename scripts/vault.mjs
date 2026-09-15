@@ -2,8 +2,8 @@
 /**
  * HorseDraft vault.
  *
- * The maintainer notes (CLAUDE.md, AGENTS.md, .claude/agents, .claude/skills, docs/ai) are kept
- * in this public repository only as ciphertext under ai/vault/. The plaintext copies are
+ * The maintainer notes (CLAUDE.md, AGENTS.md, .claude/settings.json, .claude/agents, .claude/skills,
+ * docs/ai) are kept in this public repository only as ciphertext under ai/vault/. The plaintext copies are
  * git-ignored and exist only on machines that hold the key.
  *
  *   node scripts/vault.mjs unlock [--force] [--quiet]   decrypt vault -> plaintext files
@@ -28,7 +28,7 @@ const MAGIC = "HDV1";
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
 
 /** Plaintext locations (relative to the repo root). Directories are walked recursively. */
-const TRACKED = ["CLAUDE.md", "AGENTS.md", ".claude/agents", ".claude/skills", "docs/ai"];
+const TRACKED = ["CLAUDE.md", "AGENTS.md", ".claude/settings.json", ".claude/agents", ".claude/skills", "docs/ai"];
 
 // ---------------------------------------------------------------- crypto
 
