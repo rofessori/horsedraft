@@ -22,9 +22,11 @@ decide with a hat.
 ```bash
 git clone https://github.com/rofessori/horsedraft.git
 cd horsedraft
-./scripts/bootstrap-mac.sh     # installs Node 22 via Homebrew if needed, then npm install
+./scripts/bootstrap-mac.sh     # installs Node 22 (nvm or Homebrew) if needed, then npm install
 npm run app                    # the desktop app
 ```
+
+Node 22 or newer is required. With nvm, `nvm use` picks it up from `.nvmrc`.
 
 Build a proper `.app` / `.dmg` you can keep in Applications:
 
@@ -89,12 +91,13 @@ npm run dev          # Vite dev server
 npm run check        # typecheck + unit tests + production build
 npm test             # unit tests (vitest)
 npm run e2e          # Playwright: runs real races headless and saves screenshots to test-results/shots
+npm run e2e:app      # Playwright drives the real Electron app (builds first); screenshots go to the same folder
 npm run race -- --names "Anna,Bob,Carl" --duration 10 --seed 42 --timeline   # a race in the terminal
 ```
 
 Layout: `src/core` is the pure simulation (no DOM, fully unit-tested), `src/render` draws the
 scene on a canvas, `src/ui` owns the panels and the state machine, `electron/` is the thin
-desktop shell.
+desktop shell (CommonJS `.cts` files, because Electron loads its main process with `require`).
 
 Maintainer notes live encrypted under `ai/vault/`; `npm run vault:unlock` opens them for whoever
 holds the key file.

@@ -5,6 +5,9 @@
   "description": "A free horse-race name randomizer for macOS (and any browser). Type up to 20 names, press start, and let the horses decide.",
   "author": "op",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12"
+  },
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -23,7 +26,8 @@
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:dev": "npm run electron:build && cross-env HORSEDRAFT_DEV_URL=http://localhost:5173 electron .",
     "app": "npm run build && npm run electron:build && electron .",
-    "dist:mac": "npm run build && npm run electron:build && electron-builder --mac"
+    "dist:mac": "npm run build && npm run electron:build && electron-builder --mac",
+    "e2e:app": "npm run build && npm run electron:build && playwright test -c playwright.electron.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

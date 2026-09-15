@@ -16,3 +16,7 @@ First version.
 - Electron shell for macOS (`npm run app`, `npm run dist:mac`)
 - Terminal race runner (`npm run race`)
 - Unit tests for the simulation, Playwright end-to-end tests with screenshots, CI
+- Playwright test that drives the real Electron app (`npm run e2e:app`); the shell is compiled to
+  `.cjs` so it loads correctly under the package's `"type": "module"`
+- `HORSEDRAFT_USER_DATA` (separate profile directory) and `HORSEDRAFT_INACTIVE=1` (open the window
+  without taking keyboard focus) environment variables for automation
